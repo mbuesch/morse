@@ -1,0 +1,6 @@
+morse_encoder
+
+dep
+obj
+.*.swp
+~*
