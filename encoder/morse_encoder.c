@@ -37,7 +37,7 @@ enum morse_encoding {
 static int syms_bigendian;
 static int decode;
 static enum morse_encoding morse_encoding = ENC_DASHDOT;
-static const char *input_text;
+static char *input_text;
 static size_t input_text_len;
 
 
@@ -620,6 +620,17 @@ static int morse_decode(void)
 	return 0;
 }
 
+static void * checked_realloc(void *buf, size_t size)
+{
+	buf = realloc(buf, size);
+	if (!buf) {
+		fprintf(stderr, "Out of memory\n");
+		exit(1);
+	}
+
+	return buf;
+}
+
 static void usage(int argc, char **argv)
 {
 	printf("Usage: %s <options> [STRING]\n\n", argv[0]);
@@ -634,6 +645,8 @@ static void usage(int argc, char **argv)
 static int parse_args(int argc, char **argv)
 {
 	int i = 0, c;
+	char *buf = NULL;
+	size_t bufsize = 0, len;
 
 	static const struct option long_opts[] = {
 		{ .name = "help",	.has_arg = no_argument, .flag = NULL, .val = 'h' },
@@ -671,13 +684,20 @@ static int parse_args(int argc, char **argv)
 			return -1;
 		}
 	}
-	if (optind < argc)
-		input_text = argv[optind];
+	for (i = optind; i < argc; i++) {
+		len = strlen(argv[i]) + 1;
+		bufsize += len;
+		buf = checked_realloc(buf, bufsize);
+		strcpy(&buf[bufsize - len], argv[i]);
+		buf[bufsize - 1] = ' ';
+	}
+	buf[bufsize - 1] = '\0';
+	input_text = buf;
 
 	return 0;
 }
 
-size_t stdin_read(const char **buffer)
+size_t stdin_read(char **buffer)
 {
 	char *buf = NULL;
 	size_t bufsize = 0, i = 0;
@@ -689,7 +709,7 @@ size_t stdin_read(const char **buffer)
 			break;
 		if (i + 1 >= bufsize) {
 			bufsize += 32;
-			buf = realloc(buf, bufsize);
+			buf = checked_realloc(buf, bufsize);
 		}
 		buf[i++] = c;
 	}
@@ -721,6 +741,8 @@ int main(int argc, char **argv)
 		err = morse_decode();
 	else
 		err = morse_encode();
+
+	free(input_text);
 
 	return err ? 1 : 0;
 }
